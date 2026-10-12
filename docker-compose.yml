@@ -1,0 +1,54 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: retail-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "127.0.0.1:3306:3306"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'mysqladmin ping -h 127.0.0.1 -uroot -p"$${MYSQL_ROOT_PASSWORD}" --silent'
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  backend:
+    image: retail-backend:${IMAGE_TAG:-latest}
+    container_name: retail-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      API_HOST: 0.0.0.0
+      DB_HOST: mysql
+      ENVIRONMENT: production
+      DEBUG: "false"
+    ports:
+      - "8000:8000"
+    volumes:
+      - reports_data:/app/reports/generated
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  frontend:
+    image: retail-frontend:${IMAGE_TAG:-latest}
+    container_name: retail-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
+  reports_data:
